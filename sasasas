@@ -1,0 +1,354 @@
+// =====================
+// IMPORTAÇÕES
+// =====================
+import express from "express"
+import cors from "cors"
+import { conexao } from "./db.js"
+import path from "path"
+import { fileURLToPath } from "url"
+
+// =====================
+// CONFIG
+// =====================
+const app = express()
+const PORTA = 5000
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// =====================
+// MIDDLEWARES
+// =====================
+app.use(express.json())
+app.use(cors())
+app.use(express.static(path.join(__dirname, "public")))
+
+// =====================
+// ROTA TESTE
+// =====================
+app.get("/", (req, res) => {
+    res.status(200).json({ msg: "API funcionando 🚀" })
+})
+
+app.delete("/matriculas/:id", async (req, res) => {
+    const id = Number(req.params.id)
+    if (isNaN(id)) return res.status(400).json({ msg: "ID inválido" })
+
+    try {
+        const [resultado] = await conexao.query("DELETE FROM matriculas WHERE ID = ?", [id])
+        if (resultado.affectedRows === 0) return res.status(404).json({ msg: "Matrícula não encontrada" })
+        res.status(200).json({ msg: "Matrícula removida" })
+    } catch (erro) {
+        console.error(erro)
+        res.status(500).json({ erro: "Erro ao remover matrícula" })
+    }
+})
+
+
+app.post("/matriculas", async (req, res) => {
+    const { aluno_id, curso_id } = req.body
+
+    if (!aluno_id || !curso_id) {
+        return res.status(400).json({ msg: "aluno_id e curso_id são obrigatórios" })
+    }
+
+    try {
+        // opcional: checar existência do aluno/curso
+        const [acheAluno] = await conexao.query("SELECT ID FROM alunos WHERE ID = ?", [aluno_id])
+        if (acheAluno.length === 0) return res.status(404).json({ msg: "Aluno não encontrado" })
+
+        const [acheCurso] = await conexao.query("SELECT ID FROM cursos WHERE ID = ?", [curso_id])
+        if (acheCurso.length === 0) return res.status(404).json({ msg: "Curso não encontrado" })
+
+        const [resultado] = await conexao.query(
+            "INSERT INTO matriculas (aluno_id, curso_id) VALUES (?, ?)",
+            [aluno_id, curso_id]
+        )
+
+        res.status(201).json({ msg: "Matrícula criada", id: resultado.insertId })
+    } catch (erro) {
+        console.error(erro)
+        res.status(500).json({ erro: "Erro ao criar matrícula" })
+    }
+})
+
+app.get("/matriculas", async (req, res) => {
+    try {
+        const [resultado] = await conexao.query(`
+            SELECT 
+            m.ID,
+            a.NOME AS aluno,
+            c.NOME_CURSO AS curso
+            FROM matriculas AS m
+            JOIN alunos a ON m.ALUNO_ID = a.ID
+            JOIN cursos c ON m.CURSOS_ID = c.ID;
+
+        `)
+
+        res.status(200).json(resultado)
+    } catch (erro) {
+        console.error("ERRO SQL:", erro)
+        res.status(500).json({ erro: "Erro ao buscar matrículas" })
+    }
+})
+
+
+
+// =====================
+// CREATE - CRIAR ALUNO
+// =====================
+app.post("/alunos", async (req, res) => {
+    const { nome } = req.body
+
+    if (!nome) {
+        return res.status(400).json({ msg: "Nome é obrigatório" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "INSERT INTO alunos (NOME) VALUES (?)",
+            [nome]
+        )
+
+        res.status(201).json({
+            msg: "Aluno criado com sucesso",
+            id: resultado.insertId,
+            nome
+        })
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao criar aluno" })
+    }
+})
+
+// =====================
+// READ - LISTAR TODOS
+// =====================
+app.get("/alunos", async (req, res) => {
+    try {
+        const [resultado] = await conexao.query(
+            "SELECT ID, NOME FROM alunos ORDER BY ID"
+        )
+
+        res.status(200).json(resultado)
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao buscar alunos" })
+    }
+})
+
+// =====================
+// READ - BUSCAR POR ID
+// =====================
+app.get("/alunos/:id", async (req, res) => {
+    const id = Number(req.params.id)
+
+    if (isNaN(id)) {
+        return res.status(400).json({ msg: "ID inválido" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "SELECT ID, NOME FROM alunos WHERE ID = ?",
+            [id]
+        )
+
+        if (resultado.length === 0) {
+            return res.status(404).json({ msg: "Aluno não encontrado" })
+        }
+
+        res.status(200).json(resultado[0])
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao buscar aluno" })
+    }
+})
+
+// =====================
+// UPDATE - ATUALIZAR
+// =====================
+app.put("/alunos/:id", async (req, res) => {
+    const id = Number(req.params.id)
+    const { nome } = req.body
+
+    if (isNaN(id) || !nome) {
+        return res.status(400).json({ msg: "Dados inválidos" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "UPDATE alunos SET NOME = ? WHERE ID = ?",
+            [nome, id]
+        )
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ msg: "Aluno não encontrado" })
+        }
+
+        res.status(200).json({ msg: "Aluno atualizado com sucesso" })
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao atualizar aluno" })
+    }
+})
+
+// =====================
+// DELETE - REMOVER
+// =====================
+app.delete("/alunos/:id", async (req, res) => {
+    const id = Number(req.params.id)
+
+    if (isNaN(id)) {
+        return res.status(400).json({ msg: "ID inválido" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "DELETE FROM alunos WHERE ID = ?",
+            [id]
+        )
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ msg: "Aluno não encontrado" })
+        }
+
+        res.status(200).json({ msg: "Aluno removido com sucesso" })
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao remover aluno" })
+    }
+})
+
+
+//============================= CURSOS =============================================== CURSOS ==========================
+//======================================================= CURSOS ====================================================
+
+
+// =====================
+// CREATE - CRIAR ALUNO
+// =====================
+app.post("/cursos", async (req, res) => {
+    const { nome_curso } = req.body
+
+    if (!nome_curso) {
+        return res.status(400).json({ msg: "nome_curso é obrigatório" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "INSERT INTO cursos (NOME_CURSO) VALUES (?)",
+            [nome_curso]
+        )
+
+        res.status(201).json({
+            msg: "Curso criado com sucesso",
+            id: resultado.insertId,
+            nome_curso
+        })
+    } catch (erro) {
+        console.error(erro)
+        res.status(500).json({ erro: "Erro ao criar curso" })
+    }
+})
+
+
+// =====================
+// READ - LISTAR TODOS
+// =====================
+app.get("/cursos", async (req, res) => {
+    try {
+        const [resultado] = await conexao.query(
+            "SELECT ID, NOME_CURSO FROM cursos ORDER BY ID"
+        )
+
+        res.status(200).json(resultado)
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao buscar cursos" })
+    }
+})
+
+
+// =====================
+// READ - BUSCAR POR ID
+// =====================
+app.get("/cursos/:id", async (req, res) => {
+    const id = Number(req.params.id)
+
+    if (isNaN(id)) {
+        return res.status(400).json({ msg: "ID inválido" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "SELECT ID, NOME_CURSO FROM cursos WHERE ID = ?",
+            [id]
+        )
+
+        if (resultado.length === 0) {
+            return res.status(404).json({ msg: "Curso não encontrado" })
+        }
+
+        res.status(200).json(resultado[0])
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao buscar curso" })
+    }
+})
+
+// =====================
+// UPDATE - ATUALIZAR
+// =====================
+app.put("/cursos/:id", async (req, res) => {
+    const id = Number(req.params.id)
+    const { nome_curso } = req.body
+
+    if (isNaN(id) || !nome_curso) {
+        return res.status(400).json({ msg: "Dados inválidos" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "UPDATE cursos SET NOME_CURSO = ? WHERE ID = ?",
+            [nome_curso, id]
+        )
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ msg: "Curso não encontrado" })
+        }
+
+        res.status(200).json({ msg: "Curso atualizado com sucesso" })
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao atualizar curso" })
+    }
+})
+
+
+// =====================
+// DELETE - REMOVER
+// =====================
+app.delete("/cursos/:id", async (req, res) => {
+    const id = Number(req.params.id)
+
+    if (isNaN(id)) {
+        return res.status(400).json({ msg: "ID inválido" })
+    }
+
+    try {
+        const [resultado] = await conexao.query(
+            "DELETE FROM cursos WHERE ID = ?",
+            [id]
+        )
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ msg: "Curso não encontrado" })
+        }
+
+        res.status(200).json({ msg: "Curso removido com sucesso" })
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao remover curso" })
+    }
+})
+
+//===============================================================================================================
+//===============================================================================================================
+
+
+// =====================
+// SERVIDOR
+// =====================
+app.listen(PORTA, () => {
+    console.log(`Servidor rodando na porta ${PORTA} ✅`)
+})

@@ -1,0 +1,60 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 30px;
+    background: #f4f6f8;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+input {
+    padding: 10px;
+    width: 250px;
+}
+
+button {
+    padding: 10px 14px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th {
+    background: #2c3e50;
+    color: white;
+}
+
+th, td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+/* Botões */
+button.edit {
+    background: #f1c40f;
+}
+
+button.delete {
+    background: #e74c3c;
+    color: white;
+}
+
+tr:hover {
+    background: #f0f0f0;
+}
