@@ -1,0 +1,3 @@
+nome = "vitor"
+
+lista = []
